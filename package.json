@@ -7,7 +7,9 @@
     "git": "^0.1.5",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.0",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
   },
   "name": "backend",
   "version": "1.0.0",
@@ -18,5 +20,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "@types/express-session": "^1.18.1",
+    "@types/passport": "^1.0.17",
+    "@types/passport-local": "^1.0.38"
+  }
 }
