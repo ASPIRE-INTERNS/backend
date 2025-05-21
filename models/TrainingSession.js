@@ -1,4 +1,3 @@
-// backend/models/TrainingSession.js
 const mongoose = require('mongoose');
 
 const TrainingSessionSchema = mongoose.Schema({

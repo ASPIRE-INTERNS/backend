@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const setupSocketServer = require('./config/socket');
 const path = require('path');
+const { initializeSampleCourses } = require('./utils/sampleData');
 
 // Load environment variables
 dotenv.config();
@@ -23,6 +24,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/api'));
+app.use('/api/courses', require('./routes/courses')); // Add courses route
 app.use('/api/websocket', require('./routes/websocket'));
 
 // Create HTTP server (needed for Socket.io)
@@ -30,6 +32,18 @@ const server = http.createServer(app);
 
 // Setup WebSocket server
 setupSocketServer(server);
+
+// Initialize sample data after database connection is established
+const mongoose = require('mongoose');
+mongoose.connection.once('open', async () => {
+  console.log('MongoDB connected successfully');
+  
+  // Initialize sample course data
+  await initializeSampleCourses();
+});
+
+const liveSessionRoutes = require('./routes/liveSessionRoutes');
+app.use('/api/live-sessions', liveSessionRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
@@ -47,7 +61,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(5000, () => {
+  console.log('Server is running on http://localhost:5000');
 });
+

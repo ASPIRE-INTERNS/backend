@@ -1,7 +1,7 @@
 // backend/routes/api.js
 const express = require('express');
 const router = express.Router();
-const  protect = require('../middleware/authMiddleware');
+const  {protect} = require('../middleware/authMiddleware');
 const TrainingSession = require('../models/TrainingSession');
 const User = require('../models/User');
 
@@ -25,6 +25,59 @@ router.get('/next-training', protect, async (req, res) => {
     res.json(nextTraining);
   } catch (error) {
     console.error('Error fetching next training:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/refresh-token', async (req, res) => {
+  try {
+    const refreshToken = req.headers.authorization?.split(' ')[1];
+    
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    try {
+      // Verify the expired token to extract user ID
+      // This will throw an error, but we can still access the decoded data before expiration
+      const decoded = jwt.decode(refreshToken);
+      
+      if (!decoded || !decoded.id) {
+        return res.status(401).json({ message: 'Invalid token format' });
+      }
+      
+      // Find the user
+      const user = await User.findById(decoded.id).select('-password');
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Generate a new token
+      const newToken = jwt.sign(
+        { id: user._id },
+        process.env.JWT_SECRET || 'your_jwt_secret',
+        { expiresIn: '30d' } // You can adjust this expiration time
+      );
+      
+      // Return the new token and user
+      res.json({
+        token: newToken,
+        user: {
+          _id: user._id,
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role
+        }
+      });
+    } catch (error) {
+      // If the refresh token itself is invalid (not just expired)
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+  } catch (error) {
+    console.error('Token refresh error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
