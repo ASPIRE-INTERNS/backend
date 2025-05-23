@@ -21,6 +21,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/api'));
@@ -32,6 +33,7 @@ const server = http.createServer(app);
 
 // Setup WebSocket server
 setupSocketServer(server);
+console.log('WebSocket server initialized');
 
 // Initialize sample data after database connection is established
 const mongoose = require('mongoose');
@@ -42,8 +44,7 @@ mongoose.connection.once('open', async () => {
   await initializeSampleCourses();
 });
 
-const liveSessionRoutes = require('./routes/liveSessionRoutes');
-app.use('/api/live-sessions', liveSessionRoutes);
+app.use('/api/training-sessions', require('./routes/liveSessionRoutes'));
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
@@ -61,7 +62,8 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(5000, () => {
-  console.log('Server is running on http://localhost:5000');
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`Server and WebSocket running on http://localhost:${PORT}`);
 });
 

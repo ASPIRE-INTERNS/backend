@@ -26,6 +26,25 @@ router.get('/scheduled', authorize, async (req, res) => {
   }
 });
 
+// Get a session by ID
+router.get('/:id', /*authorize,*/ async (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    
+    // For mock/testing purposes
+    const session = [...mockActiveSessions, ...mockScheduledSessions].find(s => s._id === sessionId);
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json(session);
+  } catch (error) {
+    console.error('Error fetching session:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Create a new session
 router.post('/', authorize, async (req, res) => {
   try {

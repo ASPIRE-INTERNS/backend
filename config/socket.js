@@ -17,75 +17,44 @@ function setupSocketServer(server) {
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth.token;
-      
-      if (!token) {
-        return next(new Error('Authentication required'));
-      }
-      
-      // Verify JWT token
+      if (!token) return next(new Error('Authentication required'));
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      // Get user from database
       const user = await User.findById(decoded.id).select('-password');
-      
-      if (!user) {
-        return next(new Error('User not found'));
-      }
-      
-      // Attach user to socket
+      if (!user) return next(new Error('User not found'));
+
       socket.user = {
         id: user._id,
         name: `${user.firstName} ${user.lastName}`,
         role: user.role
       };
-      
       next();
     } catch (error) {
       next(new Error('Invalid token'));
     }
   });
 
-  // Track active sessions and users
   const sessionParticipants = new Map();
 
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
     let currentSession = null;
 
-    // Join session room
     socket.on('join-session', async ({ sessionId }) => {
       try {
-        // Check if session exists
         const session = await TrainingSession.findById(sessionId);
-        
-        if (!session) {
-          return socket.emit('error', { message: 'Session not found' });
-        }
-        
-        // Update current session
+        if (!session) return socket.emit('error', { message: 'Session not found' });
+
         currentSession = sessionId;
-        
-        // Add user to session participants tracking
-        if (!sessionParticipants.has(sessionId)) {
-          sessionParticipants.set(sessionId, new Set());
-        }
-        
+        if (!sessionParticipants.has(sessionId)) sessionParticipants.set(sessionId, new Set());
         sessionParticipants.get(sessionId).add(socket.user.id);
-        
-        // Join session room
+
         socket.join(sessionId);
-        
-        // Notify everyone about participant count
         io.to(sessionId).emit('participant-count', {
           count: sessionParticipants.get(sessionId).size
         });
-        
-        // Send active question if exists
-        const activeQuestion = await Question.findOne({ 
-          sessionId, 
-          status: 'active' 
-        }).select('-correctOption');
-        
+
+        const activeQuestion = await Question.findOne({ sessionId, status: 'active' }).select('-correctOption');
         if (activeQuestion) {
           socket.emit('question', {
             id: activeQuestion._id,
@@ -93,7 +62,7 @@ function setupSocketServer(server) {
             options: activeQuestion.options
           });
         }
-        
+
         console.log(`${socket.user.name} joined session ${sessionId}`);
       } catch (error) {
         console.error('Join session error:', error);
@@ -101,21 +70,14 @@ function setupSocketServer(server) {
       }
     });
 
-    // Trainer submits question
     socket.on('submit-question', async ({ sessionId, question }) => {
       try {
-        // Check if user is trainer
-        if (socket.user.role !== 'trainer' && socket.user.role !== 'admin') {
+        if (!['trainer', 'admin'].includes(socket.user.role)) {
           return socket.emit('error', { message: 'Not authorized to submit questions' });
         }
-        
-        // End any active questions
-        await Question.updateMany(
-          { sessionId, status: 'active' },
-          { status: 'completed' }
-        );
-        
-        // Create new question
+
+        await Question.updateMany({ sessionId, status: 'active' }, { status: 'completed' });
+
         const newQuestion = new Question({
           sessionId,
           title: question.title,
@@ -123,16 +85,14 @@ function setupSocketServer(server) {
           correctOption: question.correctOption,
           status: 'active'
         });
-        
+
         const savedQuestion = await newQuestion.save();
-        
-        // Broadcast question to all participants (without correct answer)
         io.to(sessionId).emit('question', {
           id: savedQuestion._id,
           title: savedQuestion.title,
           options: savedQuestion.options
         });
-        
+
         console.log(`Trainer submitted question in session ${sessionId}`);
       } catch (error) {
         console.error('Submit question error:', error);
@@ -140,23 +100,15 @@ function setupSocketServer(server) {
       }
     });
 
-    // End active question
     socket.on('end-question', async ({ sessionId }) => {
       try {
-        // Check if user is trainer
-        if (socket.user.role !== 'trainer' && socket.user.role !== 'admin') {
+        if (!['trainer', 'admin'].includes(socket.user.role)) {
           return socket.emit('error', { message: 'Not authorized to end questions' });
         }
-        
-        // End all active questions for this session
-        await Question.updateMany(
-          { sessionId, status: 'active' },
-          { status: 'completed' }
-        );
-        
-        // Notify all participants
+
+        await Question.updateMany({ sessionId, status: 'active' }, { status: 'completed' });
         io.to(sessionId).emit('question-ended');
-        
+
         console.log(`Trainer ended question in session ${sessionId}`);
       } catch (error) {
         console.error('End question error:', error);
@@ -164,45 +116,21 @@ function setupSocketServer(server) {
       }
     });
 
-    // Submit answer to question
     socket.on('submit-answer', async ({ sessionId, questionId, answer }) => {
       try {
-        // Find the question
-        const question = await Question.findOne({
-          _id: questionId,
-          sessionId,
-          status: 'active'
-        });
-        
-        if (!question) {
-          return socket.emit('error', { message: 'Question not found or no longer active' });
-        }
-        
-        // Check if user already answered
-        const existingResponseIndex = question.responses.findIndex(
-          response => response.userId.toString() === socket.user.id
-        );
-        
-        if (existingResponseIndex >= 0) {
-          // Update existing response
-          question.responses[existingResponseIndex].answer = answer;
-        } else {
-          // Add new response
-          question.responses.push({
-            userId: socket.user.id,
-            answer
-          });
-        }
-        
+        const question = await Question.findOne({ _id: questionId, sessionId, status: 'active' });
+        if (!question) return socket.emit('error', { message: 'Question not found or no longer active' });
+
+        const existingIndex = question.responses.findIndex(r => r.userId.toString() === socket.user.id);
+        if (existingIndex >= 0) question.responses[existingIndex].answer = answer;
+        else question.responses.push({ userId: socket.user.id, answer });
+
         await question.save();
-        
-        // Acknowledge success to the user
         socket.emit('answer-submitted', { questionId });
-        
-        // Calculate and broadcast stats to trainers
+
         const responseStats = calculateResponseStats(question);
         io.to(sessionId).emit('response-stats', responseStats);
-        
+
         console.log(`User ${socket.user.id} submitted answer to question ${questionId}`);
       } catch (error) {
         console.error('Submit answer error:', error);
@@ -210,47 +138,42 @@ function setupSocketServer(server) {
       }
     });
 
-    // Handle disconnection
     socket.on('disconnect', () => {
       if (currentSession) {
-        // Remove user from session participants
         const participants = sessionParticipants.get(currentSession);
-        
         if (participants) {
           participants.delete(socket.user.id);
-          
-          // Update participant count
           io.to(currentSession).emit('participant-count', {
             count: participants.size
           });
-          
-          // Clean up empty session
-          if (participants.size === 0) {
-            sessionParticipants.delete(currentSession);
-          }
+          if (participants.size === 0) sessionParticipants.delete(currentSession);
         }
-        
         console.log(`${socket.user?.name || 'User'} left session ${currentSession}`);
       }
-      
       console.log(`User disconnected: ${socket.id}`);
+    });
+
+    socket.on('chat-message', (message) => {
+      const { sessionId, text, userId, username, timestamp, id } = message;
+      if (!sessionId || !text || !userId || !username) {
+        return socket.emit('error', { message: 'Invalid chat message format' });
+      }
+      io.to(sessionId).emit('chat-message', {
+        id,
+        sessionId,
+        userId,
+        username,
+        text,
+        timestamp
+      });
+      console.log(`Chat message from ${username} in session ${sessionId}: ${text}`);
     });
   });
 
-  // Helper function to calculate response statistics
   function calculateResponseStats(question) {
     const distribution = {};
-    
-    // Initialize counts for all options
-    question.options.forEach((_, index) => {
-      distribution[index] = 0;
-    });
-    
-    // Count responses for each option
-    question.responses.forEach(response => {
-      distribution[response.answer] = (distribution[response.answer] || 0) + 1;
-    });
-    
+    question.options.forEach((_, i) => { distribution[i] = 0 });
+    question.responses.forEach(r => { distribution[r.answer] = (distribution[r.answer] || 0) + 1 });
     return {
       questionId: question._id,
       responseCount: question.responses.length,
