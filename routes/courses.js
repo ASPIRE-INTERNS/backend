@@ -3,15 +3,12 @@ const router = express.Router();
 const Course = require('../models/Course');
 const { protect } = require('../middleware/authMiddleware');
 
-// @route   GET /api/courses
-// @desc    Get all courses
-// @access  Public
+// route   GET /api/courses
 router.get('/', async (req, res) => {
   try {
     const courses = await Course.find()
       .populate('instructorId', '_id firstName lastName');
 
-    // Transform instructorId to instructor
     const transformed = courses.map(course => {
       const c = course.toObject();
       c.instructor = c.instructorId;
@@ -26,9 +23,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// @route   GET /api/courses/:id
-// @desc    Get course by ID
-// @access  Public
+// route   GET /api/courses/:id
 router.get('/:id', async (req, res) => {
   try {
     const course = await Course.findById(req.params.id)
@@ -54,9 +49,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// @route   POST /api/courses
-// @desc    Create a new course
-// @access  Private (Trainer only)
+// route   POST /api/courses
 router.post('/', protect, async (req, res) => {
   try {
     if (req.user.role !== 'trainer') {
@@ -82,9 +75,7 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
-// @route   PUT /api/courses/:id
-// @desc    Update a course
-// @access  Private (Course owner or admin)
+// route   PUT /api/courses/:id
 router.put('/:id', protect, async (req, res) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -118,9 +109,7 @@ router.put('/:id', protect, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/courses/:id
-// @desc    Delete a course
-// @access  Private (Course owner or admin)
+// route   DELETE /api/courses/:id
 router.delete('/:id', protect, async (req, res) => {
   try {
     const course = await Course.findById(req.params.id);

@@ -1,24 +1,20 @@
 const Course = require('../models/Course');
 const User = require('../models/User');
 
-// Initialize sample courses
 const initializeSampleCourses = async () => {
   try {
-    // Check if courses already exist
     const courseCount = await Course.countDocuments();
     if (courseCount > 0) {
       console.log('Sample courses already exist');
       return;
     }
 
-    // Find a trainer to assign as instructor
     const trainer = await User.findOne({ role: 'trainer' });
     if (!trainer) {
       console.log('No trainer found to assign as instructor');
       return;
     }
 
-    // Sample course data
     const sampleCourses = [
       {
         title: 'Web Development Fundamentals',
@@ -62,7 +58,6 @@ const initializeSampleCourses = async () => {
       }
     ];
 
-    // Insert the courses
     await Course.insertMany(sampleCourses);
     console.log('Sample courses initialized successfully');
   } catch (error) {

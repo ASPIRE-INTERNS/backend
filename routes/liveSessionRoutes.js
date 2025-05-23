@@ -1,13 +1,10 @@
-// backend/routes/liveSessionRoutes.js
 const express = require('express');
 const router = express.Router();
 const {authorize} = require('../middleware/authMiddleware');
 const LiveSession = require('../models/LiveSession'); // Create this model if you haven't already
 
-// Get active sessions
 router.get('/active', authorize, async (req, res) => {
   try {
-    // For testing, return mock data
     res.json(mockActiveSessions);
   } catch (error) {
     console.error('Error fetching active sessions:', error);
@@ -15,10 +12,8 @@ router.get('/active', authorize, async (req, res) => {
   }
 });
 
-// Get scheduled sessions
 router.get('/scheduled', authorize, async (req, res) => {
   try {
-    // For testing, return mock data
     res.json(mockScheduledSessions);
   } catch (error) {
     console.error('Error fetching scheduled sessions:', error);
@@ -26,12 +21,10 @@ router.get('/scheduled', authorize, async (req, res) => {
   }
 });
 
-// Get a session by ID
 router.get('/:id', /*authorize,*/ async (req, res) => {
   try {
     const sessionId = req.params.id;
     
-    // For mock/testing purposes
     const session = [...mockActiveSessions, ...mockScheduledSessions].find(s => s._id === sessionId);
 
     if (!session) {
@@ -45,10 +38,8 @@ router.get('/:id', /*authorize,*/ async (req, res) => {
   }
 });
 
-// Create a new session
 router.post('/', authorize, async (req, res) => {
   try {
-    // For testing, just return success response
     res.status(201).json({ message: 'Session created successfully' });
   } catch (error) {
     console.error('Error creating session:', error);
@@ -56,7 +47,6 @@ router.post('/', authorize, async (req, res) => {
   }
 });
 
-// Sample data for testing
 const mockActiveSessions = [
   {
     _id: '60d5ec9c734231456ed85f01',

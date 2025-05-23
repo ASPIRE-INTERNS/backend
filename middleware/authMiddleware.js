@@ -1,26 +1,17 @@
-// backend/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 const protect = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    
     if (!token) {
       return res.status(401).json({ message: 'Not authorized, no token' });
     }
-    
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
-    
-    // Get user from token
     const user = await User.findById(decoded.id).select('-password');
-    
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
     }
-    
-    // Attach user to request
     req.user = user;
     next();
   } catch (error) {
@@ -33,7 +24,7 @@ const protect = async (req, res, next) => {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ 
         message: 'Token has expired',
-        expired: true  // Add this flag to indicate token expiration
+        expired: true  
       });
     }
     
@@ -41,7 +32,6 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Check if user has required role
 const authorize = (roles = []) => {
   if (typeof roles === 'string') {
     roles = [roles];

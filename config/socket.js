@@ -1,4 +1,3 @@
-// backend/config/socket.js
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
@@ -8,7 +7,7 @@ const TrainingSession = require('../models/TrainingSession');
 function setupSocketServer(server) {
   const io = socketIo(server, {
     cors: {
-      origin: '*', // In production, set to your frontend URL
+      origin: '*', 
       methods: ['GET', 'POST']
     }
   });
@@ -18,11 +17,9 @@ function setupSocketServer(server) {
     try {
       const token = socket.handshake.auth.token;
       if (!token) return next(new Error('Authentication required'));
-
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id).select('-password');
       if (!user) return next(new Error('User not found'));
-
       socket.user = {
         id: user._id,
         name: `${user.firstName} ${user.lastName}`,
@@ -35,20 +32,16 @@ function setupSocketServer(server) {
   });
 
   const sessionParticipants = new Map();
-
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
     let currentSession = null;
-
     socket.on('join-session', async ({ sessionId }) => {
       try {
         const session = await TrainingSession.findById(sessionId);
         if (!session) return socket.emit('error', { message: 'Session not found' });
-
         currentSession = sessionId;
         if (!sessionParticipants.has(sessionId)) sessionParticipants.set(sessionId, new Set());
         sessionParticipants.get(sessionId).add(socket.user.id);
-
         socket.join(sessionId);
         io.to(sessionId).emit('participant-count', {
           count: sessionParticipants.get(sessionId).size
@@ -75,7 +68,6 @@ function setupSocketServer(server) {
         if (!['trainer', 'admin'].includes(socket.user.role)) {
           return socket.emit('error', { message: 'Not authorized to submit questions' });
         }
-
         await Question.updateMany({ sessionId, status: 'active' }, { status: 'completed' });
 
         const newQuestion = new Question({

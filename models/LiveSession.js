@@ -1,4 +1,3 @@
-// backend/models/LiveSession.js
 const mongoose = require('mongoose');
 
 const LiveSessionSchema = new mongoose.Schema({
